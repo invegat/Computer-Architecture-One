@@ -25,7 +25,7 @@ class RAM {
     write(MAR, MDR) {
         // !!! IMPLEMENT ME
         // write the value in the MDR to the address MAR
-        console.log(`MAR: ${MAR}  MDR: ${MDR.toString(2)}`);
+        // console.log(`MAR: ${MAR}  MDR: ${MDR.toString(2)}`);
         this.mem[MAR] = MDR
     }
 

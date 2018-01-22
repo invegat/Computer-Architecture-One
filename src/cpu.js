@@ -33,7 +33,15 @@ class CPU {
         
 		this.setupBranchTable();
     }
-
+    read() {
+        this.inr.MDR = this.ram.read(this.inr.MAR);
+    }
+    readPcInc() {
+        this.inr.MAR = this.inr.PC;
+        this.read();
+        this.inr.PC++;
+        return this.inr.MDR;
+    }
 	/**
 	 * Sets up the branch table
 	 */
@@ -86,8 +94,7 @@ class CPU {
      * op can be: ADD SUB MUL DIV INC DEC CMP
      */
     alu(op, regA, regB) {
-        //this.branchTable[op](regA, regB)
-        console.log(`op: ${op} regA: ${regA} regB: ${regB}`)
+        // console.log(`op: ${op} regA: ${regA} regB: ${regB}`)
         switch (op) {
             case 'MUL':
                 this.reg[regA] = this.reg[regA] * this.reg[regB];
@@ -105,9 +112,11 @@ class CPU {
         // !!! IMPLEMENT ME
 
         // Load the instruction register from the current PC
-        this.inr.IR  = this.ram.read(this.inr.PC);
+        this.inr.MAR = this.inr.PC;
+        this.read();
+        this.inr.IR  = this.inr.MDR;
         // Debugging output0000110
-        console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'shit'}`);
+        // console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'shit'}`);
         this.inr.PC++;
         // Based on the value in the Instruction Register, jump to the
         // appropriate hander in the branchTable
@@ -119,9 +128,9 @@ class CPU {
         }
         const argCount = (this.inr.IR & 0b11000000) >> 6;
         let arg1, arg2, arg3;
-        if (argCount >= 1) arg1 = this.ram.read(this.inr.PC++); 
-        if (argCount >= 2) arg2 = this.ram.read(this.inr.PC++); 
-        if (argCount === 3) arg3 = this.ram.read(this.inr.PC++); 
+        if (argCount >= 1) arg1 = this.readPcInc(); 
+        if (argCount >= 2) arg2 = this.readPcInc(); 
+        if (argCount === 3) arg3 = this.readPcInc(); 
         // console.log(`args ${argCount}: ${arg1}  ${arg2} `)
 
         // Check that the handler is defined, halt if not (invalid
@@ -163,7 +172,8 @@ class CPU {
      */
     PRN(R) {
         // !!! IMPLEMENT ME
-        console.log(`PNR==> R: ${R}  ${this.reg[R]}  <==`)
+        // console.log(`PNR==> R: ${R}  ${this.reg[R]}  <==`)
+        console.log(this.reg[R]);
     }
 }
 
