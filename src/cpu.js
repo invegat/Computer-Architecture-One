@@ -5,12 +5,11 @@
 const fs = require('fs');
 
 // Instructions
-
-const HLT  = 0b00011011; // Halt CPU
-// !!! IMPLEMENT ME
-// LDI
-// MUL
-// PRN
+// high to bits have arg count 0-3
+const HLT = 0b00011011; // Halt CPU
+const LDI = 0b10000100;
+const MUL = 0b10000101;
+const PRN = 0b01000110;
 
 /**
  * Class for simulating a simple Computer (CPU & memory)
@@ -24,14 +23,17 @@ class CPU {
         this.ram = ram;
 
         this.reg = new Array(8).fill(0); // General-purpose registers
-        
         // Special-purpose registers
-        this.reg.PC = 0; // Program Counter
-        this.reg.IR = 0; // Instruction Register
+        this.inr = {}
+        this.inr.PC = 0; // Program Counter
+        this.inr.IR = 0; // Instruction Register
+        this.inr.MAR = 0; // Memory Address Register, holds the memory address we're reading or writing
+        this.inr.MDR = 0; // Memory Data Register, holds the value to write or the value just read
 
+        
 		this.setupBranchTable();
     }
-	
+
 	/**
 	 * Sets up the branch table
 	 */
@@ -40,13 +42,19 @@ class CPU {
 
         bt[HLT] = this.HLT;
         // !!! IMPLEMENT ME
+        bt[LDI] = this.LDI;
+        bt[MUL] = this.MUL;
+        bt[PRN] = this.PRN;    
+        
         // LDI
         // MUL
         // PRN
 
-		this.branchTable = bt;
+        this.branchTable = bt;
 	}
-
+	setTOP(i) {
+        this.ram.setTOP(i);
+    } 
     /**
      * Store value in memory address, useful for program loading
      */
@@ -78,64 +86,91 @@ class CPU {
      * op can be: ADD SUB MUL DIV INC DEC CMP
      */
     alu(op, regA, regB) {
+        //this.branchTable[op](regA, regB)
+        console.log(`op: ${op} regA: ${regA} regB: ${regB}`)
         switch (op) {
             case 'MUL':
-                // !!! IMPLEMENT ME
+                this.reg[regA] = this.reg[regA] * this.reg[regB];
+                break;
+             case 'LDI':
+                this.reg[regA] = regB;
                 break;
         }
     }
 
-    /**
+    /**{
      * Advances the CPU one cycle
      */
     tick() {
         // !!! IMPLEMENT ME
 
         // Load the instruction register from the current PC
-
-        // Debugging output
-        //console.log(`${this.reg.PC}: ${this.reg.IR.toString(2)}`);
-
+        this.inr.IR  = this.ram.read(this.inr.PC);
+        // Debugging output0000110
+        console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'shit'}`);
+        this.inr.PC++;
         // Based on the value in the Instruction Register, jump to the
         // appropriate hander in the branchTable
+        const handler = this.branchTable[this.inr.IR];
+        if (handler === undefined) {
+            this.HLT.call(this)
+            console.log('HLT')
+            return
+        }
+        const argCount = (this.inr.IR & 0b11000000) >> 6;
+        let arg1, arg2, arg3;
+        if (argCount >= 1) arg1 = this.ram.read(this.inr.PC++); 
+        if (argCount >= 2) arg2 = this.ram.read(this.inr.PC++); 
+        if (argCount === 3) arg3 = this.ram.read(this.inr.PC++); 
+        // console.log(`args ${argCount}: ${arg1}  ${arg2} `)
 
         // Check that the handler is defined, halt if not (invalid
         // instruction)
-
+ 
         // We need to use call() so we can set the "this" value inside
         // the handler (otherwise it will be undefined in the handler)
-        handler.call(this);
+
+        handler.call(this, arg1, arg2, arg3);
     }
 
-    // INSTRUCTION HANDLER CODE:
-
+    // INSTRUCTION HANDLER CODE: // !!! IMPLEMENT ME
     /**
      * HLT
      */
     HLT() {
         // !!! IMPLEMENT ME
+        this.stopClock.call(this)
     }
 
     /**
      * LDI R,I
      */
-    LDI() {
+    LDI(R,I) {
+        this.alu('LDI',R, I)
         // !!! IMPLEMENT ME
     }
 
     /**
-     * MUL R,R
+     * MUL R,L
      */
-    MUL() {
+    MUL(regA, regB) {
         // !!! IMPLEMENT ME
+        this.alu('MUL', regA, regB)
     }
 
     /**
      * PRN R
      */
-    PRN() {
+    PRN(R) {
         // !!! IMPLEMENT ME
+        console.log(`PNR==> R: ${R}  ${this.reg[R]}  <==`)
     }
 }
 
-module.exports = CPU;
+module.exports = {
+    CPU,
+    HLT,
+    MUL,
+    LDI,
+    PRN,
+}
