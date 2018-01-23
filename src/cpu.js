@@ -6,13 +6,17 @@ const fs = require('fs');
 
 // Instructions
 // high to bits have arg count 0-3
-const HLT = 0b00011011; // Halt CPU
-const LDI = 0b10000100;
-const MUL = 0b10000101;
+const HLT =  0b00011011; // Halt CPU
+const LDI =  0b10000100;
+const MUL =  0b10000101;
 const PRN =  0b01000110;
 const CALL = 0b01000111;
-const RTN = 0b00001000;
+const RTN =  0b00001000;
+const PUSH = 0b01001010;
+const POP =  0b00001011;
 
+const SP = 7;
+const TOS = 0xF7;
 /**
  * Class for simulating a simple Computer (CPU & memory)
  */
@@ -31,8 +35,8 @@ class CPU {
         this.inr.IR = 0; // Instruction Register
         this.inr.MAR = 0; // Memory Address Register, holds the memory address we're reading or writing
         this.inr.MDR = 0; // Memory Data Register, holds the value to write or the value just read
-
-        
+        this.reg[SP] = TOS;
+        this.tc = 0; // for debugging only
 		this.setupBranchTable();
     }
     read() {
@@ -57,6 +61,8 @@ class CPU {
         bt[PRN] = this.PRN;  
         bt[CALL] = this.CALL;
         bt[RTN] = this.RTN;
+        bt[PUSH] = this.PUSH;
+        bt[POP] = this.POP;
         
         // LDI
         // MUL
@@ -65,7 +71,7 @@ class CPU {
         this.branchTable = bt;
 	}
 	setTOP(i) {
-        this.ram.setTOP(i);
+        this.TOP = i;
     } 
     /**
      * Store value in memory address, useful for program loading
@@ -120,7 +126,7 @@ class CPU {
         this.read();
         this.inr.IR  = this.inr.MDR;
         // Debugging output0000110
-        // console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'shit'}`);
+        // console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'error'}`);
         this.inr.PC++;
         // Based on the value in the Instruction Register, jump to the
         // appropriate hander in the branchTable
@@ -144,6 +150,7 @@ class CPU {
         // the handler (otherwise it will be undefined in the handler)
 
         handler.call(this, arg1, arg2, arg3);
+        this.tc++;
     }
 
     // INSTRUCTION HANDLER CODE: // !!! IMPLEMENT ME
@@ -170,13 +177,27 @@ class CPU {
         // !!! IMPLEMENT ME
         this.alu('MUL', regA, regB)
     }
+    PUSH(reg) {
+        // console.log(`PUSHing ${this.reg[reg]} to ${this.reg[SP]}`);
+        if (this.reg[SP] < this.TOP + 1) throw "push at TOP";
+        this.ram.write((this.reg[SP])--,this.reg[reg]);
+       //  console.log(this.ram.read(this.reg[SP]+1))   
+       //  console.log(`SP: ${this.reg[SP]}`);
+    }
+    POP() {
+        const rv =  this.ram.read(++(this.reg[SP]));
+        // console.log(`POPing from ${this.reg[SP]}`);
+        return rv;
+    }
     CALL(address) {
         // console.log(`Call to ${address}`);
-        this.ram.push(this.inr.PC);
+        this.reg[3] = this.inr.PC;
+        this.PUSH(3);
         this.inr.PC = address;
+        // console.log(`calling ${this.ram.read(address).toString(2)} CALL length  ${((CALL & 0b11000000) >> 6)}`)
     }
     RTN() {
-        this.inr.PC = this.ram.pop();
+        this.inr.PC = this.POP();
         // console.log(`RTN to ${this.inr.PC}`);
     }
 
@@ -196,6 +217,8 @@ module.exports = {
     MUL,
     LDI,
     PRN,
+    PUSH,
+    POP,
     CALL,
     RTN,
 }

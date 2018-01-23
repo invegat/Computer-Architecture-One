@@ -1,6 +1,6 @@
 const fs = require('fs');
 const RAM = require('./ram');
-const {CPU, HLT, LDI, MUL, PRN, CALL, RTN } = require('./cpu');
+const {CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RTN } = require('./cpu');
 
 // console.log('constants',HLT,LDI,MUL,PRN)
 const iL = [
@@ -9,8 +9,11 @@ iL[HLT & 0x3F] = HLT;
 iL[LDI & 0x3F] = LDI;
 iL[MUL & 0x3F] = MUL;
 iL[PRN & 0x3F] = PRN;
+iL[PUSH & 0x3F] = PUSH;
+iL[POP & 0x3F] = POP;
 iL[CALL & 0x3F] = CALL;
 iL[RTN & 0x3F] = RTN;
+
 
 // console.log(`iL: ${iL}  il[HLT]: ${iL[0b00011011].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`) 
 /**
@@ -22,8 +25,6 @@ function processFile(content, cpu, onComplete) {
 
     let state = 0
     for (let line of lines) {
-
-
         const commentIndex = line.indexOf('#');
         if (commentIndex >= 0) line = line.substring(0,commentIndex);
         line = line.trim()
