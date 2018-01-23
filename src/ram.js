@@ -12,7 +12,7 @@ class RAM {
         this.TOP = i;
     }    
     push(value) {
-        if (this.sp > this.TOP - 1) throw "push at TOP"
+        if (this.sp < this.TOP + 1) throw "push at TOP"
         this.mem[this.sp--] = value
     }
     pop() {

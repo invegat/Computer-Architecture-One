@@ -9,7 +9,9 @@ const fs = require('fs');
 const HLT = 0b00011011; // Halt CPU
 const LDI = 0b10000100;
 const MUL = 0b10000101;
-const PRN = 0b01000110;
+const PRN =  0b01000110;
+const CALL = 0b01000111;
+const RTN = 0b00001000;
 
 /**
  * Class for simulating a simple Computer (CPU & memory)
@@ -52,7 +54,9 @@ class CPU {
         // !!! IMPLEMENT ME
         bt[LDI] = this.LDI;
         bt[MUL] = this.MUL;
-        bt[PRN] = this.PRN;    
+        bt[PRN] = this.PRN;  
+        bt[CALL] = this.CALL;
+        bt[RTN] = this.RTN;
         
         // LDI
         // MUL
@@ -122,8 +126,8 @@ class CPU {
         // appropriate hander in the branchTable
         const handler = this.branchTable[this.inr.IR];
         if (handler === undefined) {
+            console.log(`undefined handler HLT  ${this.inr.IR.toString(2)}`);
             this.HLT.call(this)
-            console.log('HLT')
             return
         }
         const argCount = (this.inr.IR & 0b11000000) >> 6;
@@ -166,6 +170,15 @@ class CPU {
         // !!! IMPLEMENT ME
         this.alu('MUL', regA, regB)
     }
+    CALL(address) {
+        // console.log(`Call to ${address}`);
+        this.ram.push(this.inr.PC);
+        this.inr.PC = address;
+    }
+    RTN() {
+        this.inr.PC = this.ram.pop();
+        // console.log(`RTN to ${this.inr.PC}`);
+    }
 
     /**
      * PRN R
@@ -183,4 +196,6 @@ module.exports = {
     MUL,
     LDI,
     PRN,
+    CALL,
+    RTN,
 }

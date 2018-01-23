@@ -1,6 +1,6 @@
 const fs = require('fs');
 const RAM = require('./ram');
-const {CPU, HLT, LDI, MUL, PRN} = require('./cpu');
+const {CPU, HLT, LDI, MUL, PRN, CALL, RTN } = require('./cpu');
 
 // console.log('constants',HLT,LDI,MUL,PRN)
 const iL = [
@@ -9,6 +9,8 @@ iL[HLT & 0x3F] = HLT;
 iL[LDI & 0x3F] = LDI;
 iL[MUL & 0x3F] = MUL;
 iL[PRN & 0x3F] = PRN;
+iL[CALL & 0x3F] = CALL;
+iL[RTN & 0x3F] = RTN;
 
 // console.log(`iL: ${iL}  il[HLT]: ${iL[0b00011011].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`) 
 /**
@@ -38,9 +40,9 @@ function processFile(content, cpu, onComplete) {
         // console.log(`raw i: ${i.toString(2)}`);
         if (!state) {
             i = iL[i];
-            state = ((i & 0xC0) >> 6) + 1
+            state = ((i & 0xC0) >> 6) + 1;
             // console.log(i & 0xC0);
-            // console.log(`state: ${state}  line: ${line} iL i: ${i ? i.toString(2) : i}`);
+            // console.log(`state: ${state}  line: ${line} iL i: ${i ? i.toString(2) : 'not working'}`);
         }
 
 
