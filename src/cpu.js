@@ -9,7 +9,7 @@ const fs = require('fs');
 const HLT = 0b00011011; // Halt CPU
 const LDI = 0b10000100;
 const MUL = 0b10000101;
-const PRN =  0b01000110;
+const PRN = 0b01000110;
 const CALL = 0b01001111;
 const RET = 0b00010000;
 const PUSH = 0b01001010;
@@ -25,7 +25,7 @@ const CMP = 0b10010110;
 const INC = 0b01010111;
 const DEC = 0b01011000;
 const JEQ = 0b01010011;
-const LD =  0b10010010;
+const LD = 0b10010010;
 const DIV = 0b10001110;
 
 const ops = {
@@ -81,11 +81,11 @@ class CPU {
         this.inr.MDR = 0; // Memory Data Register, holds the value to write or the value just read
         this.reg[SP] = TOS;
         this.flags = false;
-        this.reg[IM] = ALLBITS;
         this.int0Counter = 0;
         this.testingInt = false;
         this.halted = false;
         // for debugging only
+        this.pushPopCount = 0;
         this.waitPromises = []
         this.tc = 0;
         this.opCodes = []
@@ -155,10 +155,13 @@ class CPU {
         const _this = this;
 
         this.INTclock = setInterval(() => {
-            // console.log('calling INT0')
-            _this.reg[IS] = 1;
-            this.INT();
-        }, 1000);
+            if (_this.reg[IM]) {
+                // console.log(`calling INT0 with mask ${_this.reg[IM].toString(2)} stack size: ${TOS - _this.reg[SP]}  
+                //     Push/Pop count: ${_this.pushPopCount} `)
+                _this.reg[IS] = 1;
+                this.INT(_this);
+            }
+        }, 4);
     }
     stopINTClock() {
         clearInterval(this.INTclock);
@@ -302,15 +305,21 @@ class CPU {
         this.alu('MUL', regA, regB)
     }
     PUSH(reg) {
+        this.pushPopCount++;
         // console.log(`PUSHing reg: ${reg}  value: ${this.reg[reg]} to ${this.reg[SP].toString(16)}`);
         if (this.reg[SP] < this.TOP + 1) throw "push at TOP";
+        //  console.log(`before push ${this.reg[SP]}`)
         const v = (this.reg[SP])--;
+        // console.log(`after push ${this.reg[SP]}`)
         this.ram.write(v, this.reg[reg]);
         //  console.log(this.ram.read(this.reg[SP]+1))   
         //  console.log(`SP: ${this.reg[SP]}`);
     }
     pop() {
-        const v = ++(this.reg[SP]);
+        this.pushPopCount--;
+        // console.log(`before pop ${this.reg[SP]}`)
+        const v = ++this.reg[SP];
+        // console.log(`after pop ${this.reg[SP]}`)
         return this.ram.read(v);
     }
     POP(reg) {
@@ -342,39 +351,44 @@ class CPU {
      */
     PRN(R) {
         // !!! IMPLEMENT ME
-        // console.log(`PNR==> R: ${R}  ${this.reg[R]}  <==`)
-        console.log(this.reg[R]);
+        console.log(`PNR==+++++++++++++++++> R: ${R}  ${this.reg[R]}  <=+++++++++++++++++=`)
+        //console.log(this.reg[R]);
     }
-    INT() {
+    INT(_this) {
         //  console.log(`INT IM: ${this.reg[IM].toString(2)}  IS: ${this.reg[IS].toString(2)} `);
-        if (!this.reg[IM]) return;
-        const maskedInterrupts = (this.reg[IM] & this.reg[IS]);
+        if (this !== _this) console.log(`this delta ${_this - this}`)
+        if (!_this.reg[IM]) return;
+        const maskedInterrupts = (_this.reg[IM] & _this.reg[IS]);
         let bits = maskedInterrupts.toString(2).padStart(8, '0');
         // console.log(`bits: ${bits}`);
         for (let i = 0; i < bits.length; i++) {
             if (bits[i] != '0') {
-                this.reg[IM] = 0;
-                //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${this.inr.PC} `);
+                _this.reg[IM] = 0;
+                //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${_this.inr.PC} `);
                 let bitsA = bits.split('');
                 bitsA[i] = '0';
                 bits = bitsA.join('');
-                this.reg[IS] = Number.parseInt('0b' + bits);
+                _this.reg[IS] = Number.parseInt('0b' + bits);
+                const _SP = _this.reg[SP];
+                // console.log(`_SP: ${_SP}`);
+                const temp = _this.reg[3];
+                _this.reg[3] = _this.inr.PC;
+                _this.PUSH(3);
+                _this.reg[3] = temp;
 
-                const temp = this.reg[3];
-                this.reg[3] = this.inr.PC;
-                this.PUSH(3);
-                this.reg[3] = temp;
-                for (let j = 0; j < 8; j++) {
-                    this.PUSH(j)
+                for (let j = 0; j < 7; j++) {
+                    _this.PUSH(j)
                 }
-                this.inr.PC = this.ram.read(INT0 + 7 - i);
-                //  console.log(`INT PC: ${this.inr.PC}`);
-                this.stopClock(); // make sure it's stopped
-                this.startClock();
+                _this.reg[0] = _SP;
+                _this.PUSH(0);
+                _this.inr.PC = _this.ram.read(INT0 + 7 - i);
+                // console.log(`i: ${i} INT PC: ${_this.inr.PC}`);
+                _this.stopClock(); // make sure it's stopped
+                _this.startClock();
                 break;
             }
         }
-        // console.log(`INT exit PC: ${this.inr.PC}`);
+        // console.log(`INT exit PC: ${_this.inr.PC}`);
     }
 
     IRET() {
@@ -387,7 +401,17 @@ class CPU {
             // console.log(`restored ${this.reg[i]} to reg[${i}]`);
         }
         this.inr.PC = this.pop();
-        this.reg[SP] = r7;
+        const toPop = this.reg[SP] - r7;
+        if (toPop) console.log(`IRET delta: ${toPop}`)
+        // for (let i = 0;i<toPop; i++) {
+        //     console.log(`IRET popping`)
+        //     this.pop();
+        // }
+        if (r7 === undefined) {
+            console.log(`undefined r7`)
+        }
+        else
+            this.reg[SP] = r7;
 
         // console.log(`IRET to ${this.inr.PC}`);
         this.reg[IM] = ALLBITS;
