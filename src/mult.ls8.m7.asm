@@ -1,12 +1,15 @@
 # mult.ls8.m7.asm
 
 LDI R0, INT0
-LDI R1, 0xF8  # INT0
-ST R1,R0
+LDI R1, 0xF8  ; INT0 address
+ST R1,R0 ; Store IRTO processing address
 LDI R0,8
 LDI R1,9
-MUL R0,R1
+MUL R0,R1 
 LDI R3,MultBy3 
+CALL R3
+LDI R4, 5 // pass arg in R4
+LDI R3, DivideBy2AddArg
 CALL R3
 PRN R0
 NOP
@@ -28,6 +31,11 @@ HLT
 MultBy3:
 LDI R2,3
 MUL R0,R2
+RET
+DivideBy2AddArg:
+LDI R2,2
+DIV R0,R2
+ADD R0,R4
 RET
 INT0: 
 LDI R0, HelloINT

@@ -1,13 +1,13 @@
 const fs = require('fs');
 const RAM = require('./ram');
-function myParseInt(s,radix=10) {
+function myParseInt(s, radix = 10) {
     let v = 0
-    for (let i = s.length -1;i>=0;i--) v += parseInt(s[i],radix) * Math.pow(i,radix)
+    for (let i = s.length - 1; i >= 0; i--) v += parseInt(s[i], radix) * Math.pow(i, radix)
     return v;
 }
 
 
-const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC, DEC, JEQ, LD } = require('./cpu');
+const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC, DEC, JEQ, LD, DIV } = require('./cpu');
 
 // console.log('constants',HLT,LDI,MUL,PRN)
 const iL = [
@@ -32,7 +32,9 @@ iL[INC & 0x3F] = INC;
 iL[DEC & 0x3F] = DEC;
 iL[JEQ & 0x3F] = JEQ;
 iL[LD & 0x3F] = LD;
+iL[DIV & 0x3F] = DIV;
 
+// console.log(`iL[0]: ${iL[0]} NOP & ${NOP & 0x3F} NOP: ${NOP} `);
 
 // console.log(`iL: ${iL}  il[RET]: ${iL[0b00010000].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`)
 /**
@@ -47,20 +49,28 @@ function processFile(content, cpu, onComplete) {
         const commentIndex = line.indexOf('#');
         if (commentIndex >= 0) {
             if (/^\# TEXT/.test(line)) {
-                state = Math.max()/2;
+                state = Math.max();
                 // console.log(`ls8 text ${line}`);
             }
             line = line.substring(0, commentIndex);
         }
         line = line.trim()
         if (line.length < 8) continue
-        let i = parseInt(line.substring(0, 8), 2);
+        let ri = parseInt(line.substring(0, 8), 2);
+        let i = ri;
         // console.log(`raw i: ${i.toString(2)} state: ${state} `);
         if (!state) {
-            i = iL[i];
+            i = iL[ri];
             state = ((i & 0xC0) >> 6) + 1;
             // console.log(i & 0xC0);
-            // console.log(`state: ${state}  line: ${line} iL i: ${i ? i.toString(2) : 'not working'}`);
+            if (i === undefined)
+                console.log(`command : state: ${state}  line: ${line} iL i: ${i !== undefined ? i.toString(2) : 'not working'}
+                ri: ${ri !== undefined ? ri.toString(2) : 'not working'}  iL[0]: ${iL[0]}`);
+        }
+        if (i === undefined) {
+            console.log(`state: ${state} curAddr: ${curAddr}  line: ${line.substring(0, 8)} 
+            iL i: ${i !== undefined ? i.toString(2) : 'not working'}
+            ri: ${ri !== undefined ? ri.toString(2) : 'not working'}  `);
         }
         cpu.poke(curAddr, i)
         curAddr++;

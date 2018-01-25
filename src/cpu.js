@@ -9,7 +9,7 @@ const fs = require('fs');
 const HLT = 0b00011011; // Halt CPU
 const LDI = 0b10000100;
 const MUL = 0b10000101;
-const PRN = 0b01000110;
+const PRN =  0b01000110;
 const CALL = 0b01001111;
 const RET = 0b00010000;
 const PUSH = 0b01001010;
@@ -26,13 +26,14 @@ const INC = 0b01010111;
 const DEC = 0b01011000;
 const JEQ = 0b01010011;
 const LD =  0b10010010;
+const DIV = 0b10001110;
 
 const ops = {
     "ADD": { type: 2, code: '00001100' },
     "CALL": { type: 1, code: '00001111' },
     "CMP": { type: 2, code: '00010110' },
     "DEC": { type: 1, code: '00011000' },
-    "DIV": { type: 2, code: '00001110' },
+    "DIV": { type: 2, code: '0001110' },
     "HLT": { type: 0, code: '00011011' },
     "INC": { type: 1, code: '00010111' },
     "INT": { type: 1, code: '00011001' },
@@ -46,7 +47,7 @@ const ops = {
     "NOP": { type: 0, code: '00000000' },
     "POP": { type: 1, code: '00001011' },
     "PRA": { type: 1, code: '00000111' },
-    "PRN": { type: 1, code: '00000110' },
+    "PRN": { type: 1, code: '0000110' },
     "PUSH": { type: 1, code: '00001010' },
     "RET": { type: 0, code: '00010000' },
     "ST": { type: 2, code: '00001001' },
@@ -127,18 +128,16 @@ class CPU {
         bt[CMP] = this.CMP;
         bt[INC] = this.INC;
         bt[DEC] = this.DEC;
+        bt[ADD] = this.ADD;
         bt[JEQ] = this.JEQ;
         bt[LD] = this.LD;
-
-        // LDI
-        // MUL
-        // PRN
+        bt[DIV] = this.DIV;
 
         this.branchTable = bt;
     }
     setTOP(i) {
         this.TOP = i;
-       //  console.log(`TOP: ${this.TOP}`);
+        //  console.log(`TOP: ${this.TOP}`);
     }
     randomIND() {
         return Math.random(Math.random() * 7);
@@ -152,7 +151,7 @@ class CPU {
     }
     // timer interupt clock
     startINTClock() {
-       // console.log('started INT Clock')
+        // console.log('started INT Clock')
         const _this = this;
 
         this.INTclock = setInterval(() => {
@@ -200,6 +199,19 @@ class CPU {
             case 'ADD':
                 this.reg[regA] = this.reg[regA] + this.reg[regB];
                 break;
+            case 'INC':
+                this.reg[regA]++;
+                break;
+            case 'DEC':
+                this.reg[regA]--;
+                break;
+            case 'DIV':
+                if (this.reg[regB] === 0) this.reg[regA] = NaN; else
+                    this.reg[regA] = this.reg[regA] / this.reg[regB];
+                break;
+            case 'CMP':
+                this.flags = (this.reg[regA] === this.reg[regB]);
+                break;
         }
     }
 
@@ -214,7 +226,8 @@ class CPU {
         this.inr.IR = this.inr.MDR;
         // Debugging output0000110
         // ops.filter(o => o.)
-        // console.log(`opCode: ${this.inr.IR !== undefined ? this.opCodes[this.inr.IR & 0x3F] : 'null'}   PC  ${this.inr.PC}:  IR:  ${this.inr.IR !== undefined ? this.inr.IR.toString(2) : 'error'}`);
+        // console.log(`opCode: ${this.inr.IR !== undefined ? this.opCodes[this.inr.IR & 0x3F] : 'null'}  
+        //  PC  ${this.inr.PC}:  IR:  ${this.inr.IR !== undefined ? this.inr.IR.toString(2) : 'error'}`);
         this.inr.PC++;
         const argCount = (this.inr.IR & 0b11000000) >> 6;
         let arg1, arg2, arg3;
@@ -289,7 +302,7 @@ class CPU {
         this.alu('MUL', regA, regB)
     }
     PUSH(reg) {
-       // console.log(`PUSHing reg: ${reg}  value: ${this.reg[reg]} to ${this.reg[SP].toString(16)}`);
+        // console.log(`PUSHing reg: ${reg}  value: ${this.reg[reg]} to ${this.reg[SP].toString(16)}`);
         if (this.reg[SP] < this.TOP + 1) throw "push at TOP";
         const v = (this.reg[SP])--;
         this.ram.write(v, this.reg[reg]);
@@ -321,7 +334,7 @@ class CPU {
         this.inr.PC = this.reg[reg];
     }
     ADD(regA, regB) {
-        this.alu('Add', regA, regB);
+        this.alu('ADD', regA, regB);
     }
 
     /**
@@ -333,7 +346,7 @@ class CPU {
         console.log(this.reg[R]);
     }
     INT() {
-       //  console.log(`INT IM: ${this.reg[IM].toString(2)}  IS: ${this.reg[IS].toString(2)} `);
+        //  console.log(`INT IM: ${this.reg[IM].toString(2)}  IS: ${this.reg[IS].toString(2)} `);
         if (!this.reg[IM]) return;
         const maskedInterrupts = (this.reg[IM] & this.reg[IS]);
         let bits = maskedInterrupts.toString(2).padStart(8, '0');
@@ -341,7 +354,7 @@ class CPU {
         for (let i = 0; i < bits.length; i++) {
             if (bits[i] != '0') {
                 this.reg[IM] = 0;
-               //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${this.inr.PC} `);
+                //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${this.inr.PC} `);
                 let bitsA = bits.split('');
                 bitsA[i] = '0';
                 bits = bitsA.join('');
@@ -355,7 +368,7 @@ class CPU {
                     this.PUSH(j)
                 }
                 this.inr.PC = this.ram.read(INT0 + 7 - i);
-               //  console.log(`INT PC: ${this.inr.PC}`);
+                //  console.log(`INT PC: ${this.inr.PC}`);
                 this.stopClock(); // make sure it's stopped
                 this.startClock();
                 break;
@@ -382,8 +395,8 @@ class CPU {
     }
     ST(T, S) {
         this.ram.write(this.reg[T], this.reg[S]);
-      //  console.log(`ST source: ${this.reg[S]}  target: ${this.reg[T].toString(16)}`);
-      //  console.log(`INT0:  ${this.ram.read(INT0)}  value[2] ${this.ram.read(this.ram.read(INT0) + 2).toString(2)} `);
+        //  console.log(`ST source: ${this.reg[S]}  target: ${this.reg[T].toString(16)}`);
+        //  console.log(`INT0:  ${this.ram.read(INT0)}  value[2] ${this.ram.read(this.ram.read(INT0) + 2).toString(2)} `);
 
     }
     NOP() {
@@ -393,19 +406,22 @@ class CPU {
         process.stdout.write(String.fromCharCode(this.reg[reg]));
     }
     CMP(regA, regB) {
-        this.flags = (this.reg[regA] === this.reg[regB]);
+        this.alu('CMP', regA, regB);
     }
     INC(reg) {
-        this.reg[reg]++;
+        this.alu('INC', reg)
     }
-    DEC(reg) {
-        this.reg[reg]--;
+    DEC(regA, regB) {
+        this.alu('DEC', regA, regB)
     }
     JEQ(reg) {
         if (this.flags) this.JMP(reg);
     }
     LD(regA, regB) {
         this.reg[regA] = this.ram.read(this.reg[regB]);
+    }
+    DIV(regA, regB) {
+        this.alu('DIV', regA, regB);
     }
 }
 
@@ -429,5 +445,6 @@ module.exports = {
     INC,
     DEC,
     JEQ,
-    LD
+    LD,
+    DIV
 }
