@@ -5,6 +5,7 @@ class RAM {
     constructor(size) {
         this.mem = new Array(size);
         this.mem.fill(0);
+        // console.log(`RAM size: ${size}`);
     }
 
     /**

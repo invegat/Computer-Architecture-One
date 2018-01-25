@@ -6,17 +6,60 @@ const fs = require('fs');
 
 // Instructions
 // high to bits have arg count 0-3
-const HLT =  0b00011011; // Halt CPU
-const LDI =  0b10000100;
-const MUL =  0b10000101;
-const PRN =  0b01000110;
-const CALL = 0b01000111;
-const RTN =  0b00001000;
+const HLT = 0b00011011; // Halt CPU
+const LDI = 0b10000100;
+const MUL = 0b10000101;
+const PRN = 0b01000110;
+const CALL = 0b01001111;
+const RET = 0b00010000;
 const PUSH = 0b01001010;
-const POP =  0b00001011;
+const POP = 0b01001011;
+const INT = 0b00011001;
+const IRET = 0b00011010;
+const JMP = 0b01010001;
+const ADD = 0b10001100;
+const ST = 0b10001001;
+const NOP = 0b00000000;
+const PRA = 0b01000111;
+const CMP = 0b10010110;
+const INC = 0b01010111;
+const DEC = 0b01011000;
+const JEQ = 0b01010011;
+const LD =  0b10010010;
 
+const ops = {
+    "ADD": { type: 2, code: '00001100' },
+    "CALL": { type: 1, code: '00001111' },
+    "CMP": { type: 2, code: '00010110' },
+    "DEC": { type: 1, code: '00011000' },
+    "DIV": { type: 2, code: '00001110' },
+    "HLT": { type: 0, code: '00011011' },
+    "INC": { type: 1, code: '00010111' },
+    "INT": { type: 1, code: '00011001' },
+    "IRET": { type: 0, code: '00011010' },
+    "JEQ": { type: 1, code: '00010011' },
+    "JMP": { type: 1, code: '00010001' },
+    "JNE": { type: 1, code: '00010100' },
+    "LD": { type: 2, code: '00010010' },
+    "LDI": { type: 8, code: '00000100' },
+    "MUL": { type: 2, code: '00000101' },
+    "NOP": { type: 0, code: '00000000' },
+    "POP": { type: 1, code: '00001011' },
+    "PRA": { type: 1, code: '00000111' },
+    "PRN": { type: 1, code: '00000110' },
+    "PUSH": { type: 1, code: '00001010' },
+    "RET": { type: 0, code: '00010000' },
+    "ST": { type: 2, code: '00001001' },
+    "SUB": { type: 2, code: '00001101' },
+};
+
+const IM = 5;
+const IS = 6;
 const SP = 7;
+
 const TOS = 0xF7;
+const ALLBITS = 0xFF;
+const INT0 = 0xF8;
 /**
  * Class for simulating a simple Computer (CPU & memory)
  */
@@ -36,8 +79,21 @@ class CPU {
         this.inr.MAR = 0; // Memory Address Register, holds the memory address we're reading or writing
         this.inr.MDR = 0; // Memory Data Register, holds the value to write or the value just read
         this.reg[SP] = TOS;
-        this.tc = 0; // for debugging only
-		this.setupBranchTable();
+        this.flags = false;
+        this.reg[IM] = ALLBITS;
+        this.int0Counter = 0;
+        this.testingInt = false;
+        this.halted = false;
+        // for debugging only
+        this.waitPromises = []
+        this.tc = 0;
+        this.opCodes = []
+        Object.keys(ops).forEach(key => {
+            this.opCodes[Number('0b' + ops[key].code)] = key;
+        });
+        this.testingINT = true;
+        // end for debugging only
+        this.setupBranchTable();
     }
     read() {
         this.inr.MDR = this.ram.read(this.inr.MAR);
@@ -51,33 +107,62 @@ class CPU {
 	/**
 	 * Sets up the branch table
 	 */
-	setupBranchTable() {
-		let bt = {};
+    setupBranchTable() {
+        let bt = {};
 
         bt[HLT] = this.HLT;
         // !!! IMPLEMENT ME
         bt[LDI] = this.LDI;
         bt[MUL] = this.MUL;
-        bt[PRN] = this.PRN;  
+        bt[PRN] = this.PRN;
         bt[CALL] = this.CALL;
-        bt[RTN] = this.RTN;
+        bt[RET] = this.RET;
         bt[PUSH] = this.PUSH;
         bt[POP] = this.POP;
-        
+        bt[JMP] = this.JMP;
+        bt[IRET] = this.IRET;
+        bt[ST] = this.ST;
+        bt[NOP] = this.NOP;
+        bt[PRA] = this.PRA;
+        bt[CMP] = this.CMP;
+        bt[INC] = this.INC;
+        bt[DEC] = this.DEC;
+        bt[JEQ] = this.JEQ;
+        bt[LD] = this.LD;
+
         // LDI
         // MUL
         // PRN
 
         this.branchTable = bt;
-	}
-	setTOP(i) {
+    }
+    setTOP(i) {
         this.TOP = i;
-    } 
+       //  console.log(`TOP: ${this.TOP}`);
+    }
+    randomIND() {
+        return Math.random(Math.random() * 7);
+    }
+
     /**
      * Store value in memory address, useful for program loading
      */
     poke(address, value) {
         this.ram.write(address, value);
+    }
+    // timer interupt clock
+    startINTClock() {
+       // console.log('started INT Clock')
+        const _this = this;
+
+        this.INTclock = setInterval(() => {
+            // console.log('calling INT0')
+            _this.reg[IS] = 1;
+            this.INT();
+        }, 1000);
+    }
+    stopINTClock() {
+        clearInterval(this.INTclock);
     }
 
     /**
@@ -109,8 +194,11 @@ class CPU {
             case 'MUL':
                 this.reg[regA] = this.reg[regA] * this.reg[regB];
                 break;
-             case 'LDI':
+            case 'LDI':
                 this.reg[regA] = regB;
+                break;
+            case 'ADD':
+                this.reg[regA] = this.reg[regA] + this.reg[regB];
                 break;
         }
     }
@@ -119,55 +207,78 @@ class CPU {
      * Advances the CPU one cycle
      */
     tick() {
-        // !!! IMPLEMENT ME
-
         // Load the instruction register from the current PC
+
         this.inr.MAR = this.inr.PC;
         this.read();
-        this.inr.IR  = this.inr.MDR;
+        this.inr.IR = this.inr.MDR;
         // Debugging output0000110
-        // console.log(`PC  ${this.inr.PC}:  IR:  ${this.inr.IR  ?  this.inr.IR.toString(2) : 'error'}`);
+        // ops.filter(o => o.)
+        // console.log(`opCode: ${this.inr.IR !== undefined ? this.opCodes[this.inr.IR & 0x3F] : 'null'}   PC  ${this.inr.PC}:  IR:  ${this.inr.IR !== undefined ? this.inr.IR.toString(2) : 'error'}`);
         this.inr.PC++;
+        const argCount = (this.inr.IR & 0b11000000) >> 6;
+        let arg1, arg2, arg3;
+        if (argCount >= 1) arg1 = this.readPcInc();
+        if (argCount >= 2) arg2 = this.readPcInc();
+        if (argCount === 3) arg3 = this.readPcInc();
+        // console.log(`args ${argCount}: ${argCount >= 1 ? arg1 : ''}  ${argCount >= 2 ? arg2 : ''} `)        
+
         // Based on the value in the Instruction Register, jump to the
         // appropriate hander in the branchTable
         const handler = this.branchTable[this.inr.IR];
         if (handler === undefined) {
-            console.log(`undefined handler HLT  ${this.inr.IR.toString(2)}`);
+            console.log(`undefined handler HLT  tc: ${this.tc}  PC: ${this.inr.PC} IR: ${this.inr.IR ? this.inr.IR.toString(2) : 'null'}`);
             this.HLT.call(this)
             return
         }
-        const argCount = (this.inr.IR & 0b11000000) >> 6;
-        let arg1, arg2, arg3;
-        if (argCount >= 1) arg1 = this.readPcInc(); 
-        if (argCount >= 2) arg2 = this.readPcInc(); 
-        if (argCount === 3) arg3 = this.readPcInc(); 
-        // console.log(`args ${argCount}: ${arg1}  ${arg2} `)
+
 
         // Check that the handler is defined, halt if not (invalid
         // instruction)
- 
+
         // We need to use call() so we can set the "this" value inside
         // the handler (otherwise it will be undefined in the handler)
 
         handler.call(this, arg1, arg2, arg3);
         this.tc++;
     }
-
+    int0() {
+        this.int0Counter++;
+        for (let i = 0; i < 7; i++) this.reg[i] = this.int0Counter + i;
+        this.PRN(`reg[0]: ${reg[0]} reg[1]: ${reg[1]} reg[2]: ${reg[2]} reg[3]: ${reg[3]} reg[4]: ${reg[4]} reg[5]: ${reg[5]} reg[6]: ${reg[6]} reg[7]: ${reg[7]} `)
+    }
+    sleep() {
+        const timer = ms => new Promise(res => setTimeout(res, ms));
+        return timer;
+    }
     // INSTRUCTION HANDLER CODE: // !!! IMPLEMENT ME
     /**
      * HLT
      */
     HLT() {
-        // !!! IMPLEMENT ME
-        this.stopClock.call(this)
+        this.halted = true;
+        this.stopClock();
+        const promiseSerial = funcs =>
+            funcs.reduce((promise, func) =>
+                promise.then(result => func(500).then(Array.prototype.concat.bind(result))),
+                Promise.resolve([]));
+
+        promiseSerial(this.waitPromises)
+            .then(_ => {
+                // console.log('stopping INT clock');
+                this.stopINTClock()
+            })
+            .catch(console.error.bind(console));
+
     }
 
     /**
      * LDI R,I
      */
-    LDI(R,I) {
-        this.alu('LDI',R, I)
+    LDI(R, I) {
+        this.alu('LDI', R, I)
         // !!! IMPLEMENT ME
+
     }
 
     /**
@@ -178,27 +289,39 @@ class CPU {
         this.alu('MUL', regA, regB)
     }
     PUSH(reg) {
-        // console.log(`PUSHing ${this.reg[reg]} to ${this.reg[SP]}`);
+       // console.log(`PUSHing reg: ${reg}  value: ${this.reg[reg]} to ${this.reg[SP].toString(16)}`);
         if (this.reg[SP] < this.TOP + 1) throw "push at TOP";
-        this.ram.write((this.reg[SP])--,this.reg[reg]);
-       //  console.log(this.ram.read(this.reg[SP]+1))   
-       //  console.log(`SP: ${this.reg[SP]}`);
+        const v = (this.reg[SP])--;
+        this.ram.write(v, this.reg[reg]);
+        //  console.log(this.ram.read(this.reg[SP]+1))   
+        //  console.log(`SP: ${this.reg[SP]}`);
     }
-    POP() {
-        const rv =  this.ram.read(++(this.reg[SP]));
+    pop() {
+        const v = ++(this.reg[SP]);
+        return this.ram.read(v);
+    }
+    POP(reg) {
+        this.reg[reg] = this.pop();
         // console.log(`POPing from ${this.reg[SP]}`);
-        return rv;
     }
-    CALL(address) {
+    CALL(reg) {
         // console.log(`Call to ${address}`);
+        const temp = this.reg[3];
         this.reg[3] = this.inr.PC;
         this.PUSH(3);
-        this.inr.PC = address;
+        this.reg[3] = temp;
+        this.inr.PC = this.reg[reg];
         // console.log(`calling ${this.ram.read(address).toString(2)} CALL length  ${((CALL & 0b11000000) >> 6)}`)
     }
-    RTN() {
-        this.inr.PC = this.POP();
-        // console.log(`RTN to ${this.inr.PC}`);
+    RET() {
+        this.inr.PC = this.pop();
+        // console.log(`RET to ${this.inr.PC}`);
+    }
+    JMP(reg) {
+        this.inr.PC = this.reg[reg];
+    }
+    ADD(regA, regB) {
+        this.alu('Add', regA, regB);
     }
 
     /**
@@ -208,6 +331,81 @@ class CPU {
         // !!! IMPLEMENT ME
         // console.log(`PNR==> R: ${R}  ${this.reg[R]}  <==`)
         console.log(this.reg[R]);
+    }
+    INT() {
+       //  console.log(`INT IM: ${this.reg[IM].toString(2)}  IS: ${this.reg[IS].toString(2)} `);
+        if (!this.reg[IM]) return;
+        const maskedInterrupts = (this.reg[IM] & this.reg[IS]);
+        let bits = maskedInterrupts.toString(2).padStart(8, '0');
+        // console.log(`bits: ${bits}`);
+        for (let i = 0; i < bits.length; i++) {
+            if (bits[i] != '0') {
+                this.reg[IM] = 0;
+               //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${this.inr.PC} `);
+                let bitsA = bits.split('');
+                bitsA[i] = '0';
+                bits = bitsA.join('');
+                this.reg[IS] = Number.parseInt('0b' + bits);
+
+                const temp = this.reg[3];
+                this.reg[3] = this.inr.PC;
+                this.PUSH(3);
+                this.reg[3] = temp;
+                for (let j = 0; j < 8; j++) {
+                    this.PUSH(j)
+                }
+                this.inr.PC = this.ram.read(INT0 + 7 - i);
+               //  console.log(`INT PC: ${this.inr.PC}`);
+                this.stopClock(); // make sure it's stopped
+                this.startClock();
+                break;
+            }
+        }
+        // console.log(`INT exit PC: ${this.inr.PC}`);
+    }
+
+    IRET() {
+        // console.log(`iRET SP: ${this.reg[SP]}`)
+        // const badPop = this.pop();
+        //console.log(`bad pop: ${badPop} SP: ${this.reg[SP]}`);
+        const r7 = this.pop();
+        for (let i = 6; i >= 0; i--) {
+            this.reg[i] = this.pop()
+            // console.log(`restored ${this.reg[i]} to reg[${i}]`);
+        }
+        this.inr.PC = this.pop();
+        this.reg[SP] = r7;
+
+        // console.log(`IRET to ${this.inr.PC}`);
+        this.reg[IM] = ALLBITS;
+        if (this.halted) this.stopClock();
+    }
+    ST(T, S) {
+        this.ram.write(this.reg[T], this.reg[S]);
+      //  console.log(`ST source: ${this.reg[S]}  target: ${this.reg[T].toString(16)}`);
+      //  console.log(`INT0:  ${this.ram.read(INT0)}  value[2] ${this.ram.read(this.ram.read(INT0) + 2).toString(2)} `);
+
+    }
+    NOP() {
+        if (this.testingINT) this.waitPromises.push(this.sleep());
+    }
+    PRA(reg) {
+        process.stdout.write(String.fromCharCode(this.reg[reg]));
+    }
+    CMP(regA, regB) {
+        this.flags = (this.reg[regA] === this.reg[regB]);
+    }
+    INC(reg) {
+        this.reg[reg]++;
+    }
+    DEC(reg) {
+        this.reg[reg]--;
+    }
+    JEQ(reg) {
+        if (this.flags) this.JMP(reg);
+    }
+    LD(regA, regB) {
+        this.reg[regA] = this.ram.read(this.reg[regB]);
     }
 }
 
@@ -220,5 +418,16 @@ module.exports = {
     PUSH,
     POP,
     CALL,
-    RTN,
+    RET,
+    ADD,
+    JMP,
+    IRET,
+    ST,
+    NOP,
+    PRA,
+    CMP,
+    INC,
+    DEC,
+    JEQ,
+    LD
 }

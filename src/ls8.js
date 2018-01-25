@@ -1,6 +1,13 @@
 const fs = require('fs');
 const RAM = require('./ram');
-const {CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RTN } = require('./cpu');
+function myParseInt(s,radix=10) {
+    let v = 0
+    for (let i = s.length -1;i>=0;i--) v += parseInt(s[i],radix) * Math.pow(i,radix)
+    return v;
+}
+
+
+const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC, DEC, JEQ, LD } = require('./cpu');
 
 // console.log('constants',HLT,LDI,MUL,PRN)
 const iL = [
@@ -12,10 +19,22 @@ iL[PRN & 0x3F] = PRN;
 iL[PUSH & 0x3F] = PUSH;
 iL[POP & 0x3F] = POP;
 iL[CALL & 0x3F] = CALL;
-iL[RTN & 0x3F] = RTN;
+iL[RET & 0x3F] = RET;
+iL[INT & 0x3F] = INT;
+iL[IRET & 0x3F] = IRET;
+iL[JMP & 0x3F] = JMP;
+iL[ADD & 0x3F] = ADD;
+iL[ST & 0x3F] = ST;
+iL[NOP & 0x3F] = NOP;
+iL[PRA & 0x3F] = PRA;
+iL[CMP & 0x3F] = CMP;
+iL[INC & 0x3F] = INC;
+iL[DEC & 0x3F] = DEC;
+iL[JEQ & 0x3F] = JEQ;
+iL[LD & 0x3F] = LD;
 
 
-// console.log(`iL: ${iL}  il[HLT]: ${iL[0b00011011].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`) 
+// console.log(`iL: ${iL}  il[RET]: ${iL[0b00010000].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`)
 /**
  * Process a loaded file
  */
@@ -26,18 +45,24 @@ function processFile(content, cpu, onComplete) {
     let state = 0
     for (let line of lines) {
         const commentIndex = line.indexOf('#');
-        if (commentIndex >= 0) line = line.substring(0,commentIndex);
+        if (commentIndex >= 0) {
+            if (/^\# TEXT/.test(line)) {
+                state = Math.max()/2;
+                // console.log(`ls8 text ${line}`);
+            }
+            line = line.substring(0, commentIndex);
+        }
         line = line.trim()
-        if (line.length < 8) continue  
-        let i  = parseInt(line.substring(0,8),2);
-        // console.log(`raw i: ${i.toString(2)}`);
+        if (line.length < 8) continue
+        let i = parseInt(line.substring(0, 8), 2);
+        // console.log(`raw i: ${i.toString(2)} state: ${state} `);
         if (!state) {
             i = iL[i];
             state = ((i & 0xC0) >> 6) + 1;
             // console.log(i & 0xC0);
             // console.log(`state: ${state}  line: ${line} iL i: ${i ? i.toString(2) : 'not working'}`);
         }
-        cpu.poke(curAddr,i)
+        cpu.poke(curAddr, i)
         curAddr++;
         state--;
     }
@@ -54,7 +79,7 @@ function loadFileFromStdin(cpu, onComplete) {
     // Read everything from standard input, stolen from:
     // https://stackoverflow.com/questions/13410960/how-to-read-an-entire-text-stream-in-node-js
     process.stdin.resume();
-    process.stdin.on('data', function(buf) { content += buf.toString(); });
+    process.stdin.on('data', function (buf) { content += buf.toString(); });
     process.stdin.on('end', () => { processFile(content, cpu, onComplete); });
 }
 
@@ -73,6 +98,7 @@ function loadFile(filename, cpu, onComplete) {
  */
 function onFileLoaded(cpu) {
     cpu.startClock();
+    cpu.startINTClock();
 }
 
 /**
@@ -90,7 +116,7 @@ if (argv.length === 0) {
     // Read from stdin
     loadFileFromStdin(cpu, onFileLoaded);
 } else if (argv.length == 1) {
-   //  console.log(`loadFile ${argv[0]}`)
+    //  console.log(`loadFile ${argv[0]}`)
     // Read from file
     loadFile(argv[0], cpu, onFileLoaded);
 } else {
