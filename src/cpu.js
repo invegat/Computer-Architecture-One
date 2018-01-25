@@ -358,15 +358,16 @@ class CPU {
         //  console.log(`INT IM: ${this.reg[IM].toString(2)}  IS: ${this.reg[IS].toString(2)} `);
         if (this !== _this) console.log(`this delta ${_this - this}`)
         if (!_this.reg[IM]) return;
-        const maskedInterrupts = (_this.reg[IM] & _this.reg[IS]);
+        // Check if an interrupt happened
+        const maskedInterrupts = this.reg[IS] & this.reg[IM];
         let bits = maskedInterrupts.toString(2).padStart(8, '0');
         // console.log(`bits: ${bits}`);
-        for (let i = 0; i < bits.length; i++) {
+        for (let i = bits.length - 1; i >= 0; i--) {
             if (bits[i] != '0') {
-                _this.reg[IM] = 0;
+                _this.reg[IM] = 0;  // disable all interupts
                 //  console.log(`found INT${7 - i}  bits[i]: ${bits[i]} i: ${i}  PC: ${_this.inr.PC} `);
-                let bitsA = bits.split('');
-                bitsA[i] = '0';
+                let bitsA = bits.split('');  
+                bitsA[i] = '0'; // only turn off this interupt
                 bits = bitsA.join('');
                 _this.reg[IS] = Number.parseInt('0b' + bits);
                 const _SP = _this.reg[SP];
@@ -414,7 +415,7 @@ class CPU {
             this.reg[SP] = r7;
 
         // console.log(`IRET to ${this.inr.PC}`);
-        this.reg[IM] = ALLBITS;
+        this.reg[IM] = ALLBITS; // enable all interupts
         if (this.halted) this.stopClock();
     }
     ST(T, S) {

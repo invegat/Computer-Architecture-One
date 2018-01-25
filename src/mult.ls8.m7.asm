@@ -3,7 +3,7 @@
 LDI R0, INT0
 LDI R1, 0xF8  ; INT0 address
 ST R1,R0 ; Store IRTO processing address
-LDI R5,255
+LDI R5,255 ; set mask to enable interupts
 LDI R0,8
 LDI R1,9
 MUL R0,R1 
