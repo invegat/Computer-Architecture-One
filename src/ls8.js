@@ -1,14 +1,13 @@
 const fs = require('fs');
 const RAM = require('./ram');
-function myParseInt(s, radix = 10) {
-    let v = 0
-    for (let i = s.length - 1; i >= 0; i--) v += parseInt(s[i], radix) * Math.pow(i, radix)
-    return v;
-}
+const Keyboard = require('./keyboard');
+const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC,
+        DEC, JEQ, JNE, LD, DIV } = require('./cpu');
 
-
-const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC, DEC, JEQ, LD, DIV } = require('./cpu');
-
+let ram = new RAM(256);
+let cpu = new CPU(ram);
+const keyboard = new Keyboard();
+keyboard.ConnectToCPU(cpu);
 // console.log('constants',HLT,LDI,MUL,PRN)
 const iL = [
 ]
@@ -31,15 +30,18 @@ iL[CMP & 0x3F] = CMP;
 iL[INC & 0x3F] = INC;
 iL[DEC & 0x3F] = DEC;
 iL[JEQ & 0x3F] = JEQ;
+iL[JNE & 0x3F] = JNE;
 iL[LD & 0x3F] = LD;
 iL[DIV & 0x3F] = DIV;
+iL[JNE & 0x3F] = JNE;
 
-// console.log(`iL[0]: ${iL[0]} NOP & ${NOP & 0x3F} NOP: ${NOP} `);
+console.log(`iL[0]: ${iL[0]} NOP & ${NOP & 0x3F} NOP: ${NOP} `);
+console.log(`iL[JNE & 0x3F]: ${iL[JNE & 0x3F].toString(2)} JNE & 0x3F ${(JNE & 0x3F).toString(2)} JNE: ${JNE.toString(2)} `);
 
 // console.log(`iL: ${iL}  il[RET]: ${iL[0b00010000].toString(2)}  iL[LDI]: ${iL[4].toString(2)}`)
 /**
  * Process a loaded file
- */
+ **/
 function processFile(content, cpu, onComplete) {
     let curAddr = 0;
     const lines = content.split('\n');
@@ -115,8 +117,8 @@ function onFileLoaded(cpu) {
  * Main
  */
 
-let ram = new RAM(256);
-let cpu = new CPU(ram);
+
+
 
 // Get remaining command line arguments
 const argv = process.argv.slice(2);
