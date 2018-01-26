@@ -17,6 +17,8 @@ CALL R3
 LDI R4, 5 // pass arg in R4
 LDI R3, DivideBy2AddArg
 CALL R3
+LDI R1,12
+SUB R0,R1
 PRN R0
 NOP
 NOP
@@ -34,10 +36,6 @@ NOP
 NOP
 NOP
 HLT
-    ; WAIT forever
-
-    LDI R0,0xFF
-    WAIT R0
 MultBy3:
 LDI R2,3
 MUL R0,R2

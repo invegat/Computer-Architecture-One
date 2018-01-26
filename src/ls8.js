@@ -1,7 +1,7 @@
 const fs = require('fs');
 const RAM = require('./ram');
 const Keyboard = require('./keyboard');
-const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, ST, NOP, PRA, CMP, INC,
+const { CPU, HLT, LDI, MUL, PRN, PUSH, POP, CALL, RET, INT, IRET, JMP, ADD, SUB, ST, NOP, PRA, CMP, INC,
         DEC, JEQ, JNE, LD, DIV } = require('./cpu');
 
 let ram = new RAM(256);
@@ -23,6 +23,7 @@ iL[INT & 0x3F] = INT;
 iL[IRET & 0x3F] = IRET;
 iL[JMP & 0x3F] = JMP;
 iL[ADD & 0x3F] = ADD;
+iL[SUB & 0x3F] = SUB;
 iL[ST & 0x3F] = ST;
 iL[NOP & 0x3F] = NOP;
 iL[PRA & 0x3F] = PRA;

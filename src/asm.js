@@ -73,7 +73,6 @@ const ops = {
   "RET":  { type: 0, code: '00010000' },
   "ST":   { type: 2, code: '00001001' },
   "SUB":  { type: 2, code: '00001101' },
-  "WAIT": { type: 1, code: '00011100' },
 };
 
 // Type to function mapping

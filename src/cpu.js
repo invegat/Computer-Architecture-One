@@ -19,6 +19,7 @@ const INT = 0b00011001;
 const IRET = 0b00011010;
 const JMP = 0b01010001;
 const ADD = 0b10001100;
+const SUB = 0b10001101;
 const ST = 0b10001001;
 const NOP = 0b00000000;
 const PRA = 0b01000111;
@@ -29,7 +30,6 @@ const JEQ = 0b01010011;
 const JNE = 0b01010100;
 const LD = 0b10010010;
 const DIV = 0b10001110;
-const WAIT = 0b01011100;
 
 const ops = {
     "ADD": { type: 2, code: '00001100' },
@@ -55,7 +55,6 @@ const ops = {
     "RET": { type: 0, code: '00010000' },
     "ST": { type: 2, code: '00001001' },
     "SUB": { type: 2, code: '00001101' },
-    "WAIT:": { type: 1, code: '00011100' },
 };
 
 const IM = 5;
@@ -159,11 +158,11 @@ class CPU {
         bt[INC] = this.INC;
         bt[DEC] = this.DEC;
         bt[ADD] = this.ADD;
+        bt[SUB] = this.SUB;
         bt[JEQ] = this.JEQ;
         bt[JNE] = this.JNE;
         bt[LD] = this.LD;
         bt[DIV] = this.DIV;
-        bt[WAIT] = this.WAIT;
 
         this.branchTable = bt;
     }
@@ -234,6 +233,9 @@ class CPU {
             case 'ADD':
                 this.reg[regA] = this.reg[regA] + this.reg[regB];
                 break;
+            case 'SUB':
+                this.reg[regA] = this.reg[regA] - this.reg[regB];
+                break;                
             case 'INC':
                 this.reg[regA]++;
                 break;
@@ -327,7 +329,8 @@ class CPU {
                 */
             })
             .catch(console.error.bind(console));
-
+        this.reg[0] = 0xFF;
+        this.WAIT(0);
     }
 
     /**
@@ -387,6 +390,9 @@ class CPU {
     ADD(regA, regB) {
         this.alu('ADD', regA, regB);
     }
+    SUB(regA, regB) {
+        this.alu('SUB', regA, regB);
+    }    
 
     /**
      * PRN R
@@ -520,7 +526,7 @@ class CPU {
     WAIT(reg) {
         console.log('start WAIT');
         const ms = (this.reg[reg] === 0xFF) ? -1 : this.reg[reg];
-        wait(ms);
+        this.wait(ms);
         console.log('exit WAIT');
     }
 }
@@ -536,6 +542,7 @@ module.exports = {
     CALL,
     RET,
     ADD,
+    SUB,
     JMP,
     IRET,
     ST,
@@ -547,6 +554,5 @@ module.exports = {
     JEQ,
     JNE,
     LD,
-    DIV,
-    WAIT
+    DIV
 }

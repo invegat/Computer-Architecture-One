@@ -7,10 +7,9 @@
     ; Enable keyboard interrupts
     LDI R5,2
 
-    ; WAIT forever
-
-    LDI R0,0xFF
-    WAIT R0
+forever:
+    LDI R0,forever
+    JMP R0
 
 KeyboardHandler:
 
